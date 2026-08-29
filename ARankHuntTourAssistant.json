@@ -1,0 +1,18 @@
+{
+  "Author": "Elpa",
+  "Name": "A-Rank Hunt Tour Assistant",
+  "InternalName": "ARankHuntTourAssistant",
+  "AssemblyVersion": "0.1.0",
+  "Description": "Aモブハントツアーを補助するツール。漆黒・暁月・黄金のAモブ候補地点巡回、探索・討伐記録、MOBハント用リスト、MAPリンク共有に対応します。",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 15,
+  "LoadPriority": 0,
+  "Punchline": "Aモブハントツアーの探索・記録・MAP共有を補助します。",
+  "Tags": [
+    "hunt",
+    "A-rank",
+    "tour",
+    "assistant"
+  ],
+  "IconUrl": ""
+}
