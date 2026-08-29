@@ -6,7 +6,7 @@
     "Description": "Aモブハントツアーを補助するツール。漆黒・暁月・黄金のAモブ候補地点巡回、探索・討伐記録、MOBハント用リスト、MAPリンク共有に対応します。",
     "Changelog": "v0.1.0 初回公開。",
     "InternalName": "ARankHuntTourAssistant",
-    "AssemblyVersion": "0.1.0",
+    "AssemblyVersion": "0.1.0.0",
     "RepoUrl": "https://github.com/elpapityo/ARankHuntTourAssistant",
     "ApplicableVersion": "any",
     "Tags": [
