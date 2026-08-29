@@ -17,7 +17,7 @@
     ],
     "DalamudApiLevel": 15,
     "LoadPriority": 0,
-    "IconUrl": "https://raw.githubusercontent.com/elpapityo/ARankHuntTourAssistant/main/ARankHuntTourAssistant/images/icon.png",
+    "IconUrl": "https://raw.githubusercontent.com/elpapityo/ARankHuntTourAssistant/main/images/icon.png",
     "ImageUrls": [],
     "DownloadLinkInstall": "https://github.com/elpapityo/ARankHuntTourAssistant/releases/download/v0.1.0/ARankHuntTourAssistant_v0.1.0.zip",
     "DownloadLinkUpdate": "https://github.com/elpapityo/ARankHuntTourAssistant/releases/download/v0.1.0/ARankHuntTourAssistant_v0.1.0.zip",
