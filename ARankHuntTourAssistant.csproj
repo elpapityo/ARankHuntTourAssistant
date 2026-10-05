@@ -7,7 +7,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>ARankHuntTourAssistant</AssemblyName>
     <RootNamespace>ARankHuntTourAssistant</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <None Include="ARankHuntTourAssistant.json" CopyToOutputDirectory="PreserveNewest" />
