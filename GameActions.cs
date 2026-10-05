@@ -23,6 +23,11 @@ internal sealed class GameActions
     private readonly ICallGateSubscriber<object> vnavStop;
     private readonly ICallGateSubscriber<Vector3, bool, float, Vector3?> vnavPointOnFloor;
 
+    private readonly ICallGateSubscriber<bool> lifestreamBusy;
+    private readonly ICallGateSubscriber<bool> lifestreamCanChangeInstance;
+    private readonly ICallGateSubscriber<int> lifestreamNumberOfInstances;
+    private readonly ICallGateSubscriber<int, object> lifestreamChangeInstance;
+
     public bool OwnsVnav { get; private set; }
     public bool OwnsCombat { get; private set; }
     public Vector3? LastDestination { get; private set; }
@@ -36,6 +41,12 @@ internal sealed class GameActions
         vnavRunning = pi.GetIpcSubscriber<bool>("vnavmesh.Path.IsRunning");
         vnavStop = pi.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
         vnavPointOnFloor = pi.GetIpcSubscriber<Vector3, bool, float, Vector3?>("vnavmesh.Query.Mesh.PointOnFloor");
+
+        // Lifestream は EzIPC で "Lifestream.<MethodName>" を公開している。
+        lifestreamBusy = pi.GetIpcSubscriber<bool>("Lifestream.IsBusy");
+        lifestreamCanChangeInstance = pi.GetIpcSubscriber<bool>("Lifestream.CanChangeInstance");
+        lifestreamNumberOfInstances = pi.GetIpcSubscriber<int>("Lifestream.GetNumberOfInstances");
+        lifestreamChangeInstance = pi.GetIpcSubscriber<int, object>("Lifestream.ChangeInstance");
     }
 
     public bool IsReady() { try { return vnavReady.InvokeFunc(); } catch { return false; } }
@@ -47,6 +58,42 @@ internal sealed class GameActions
     public bool IsDiving => condition[ConditionFlag.Diving];
     public bool IsInCombat => condition[ConditionFlag.InCombat];
     public bool IsBetweenAreas => condition[ConditionFlag.BetweenAreas];
+
+    public bool IsLifestreamAvailable =>
+        lifestreamBusy.HasFunction &&
+        lifestreamCanChangeInstance.HasFunction &&
+        lifestreamNumberOfInstances.HasFunction &&
+        lifestreamChangeInstance.HasAction;
+    public bool IsLifestreamBusy()
+    {
+        try { return lifestreamBusy.HasFunction && lifestreamBusy.InvokeFunc(); }
+        catch { return true; }
+    }
+    public bool CanChangeInstance()
+    {
+        try { return lifestreamCanChangeInstance.HasFunction && lifestreamCanChangeInstance.InvokeFunc(); }
+        catch { return false; }
+    }
+    public int NumberOfInstances()
+    {
+        try { return lifestreamNumberOfInstances.HasFunction ? lifestreamNumberOfInstances.InvokeFunc() : 0; }
+        catch { return 0; }
+    }
+    public bool ChangeInstance(int number)
+    {
+        if(number <= 0 || !lifestreamChangeInstance.HasAction) return false;
+        try
+        {
+            lifestreamChangeInstance.InvokeAction(number);
+            log.Information("[ARHTA][Instance] Lifestreamへインスタンス移動要求 / Target={Instance}", number);
+            return true;
+        }
+        catch(Exception ex)
+        {
+            log.Warning(ex,"[ARHTA][Instance] Lifestreamインスタンス移動要求に失敗 / Target={Instance}", number);
+            return false;
+        }
+    }
 
     public Vector3? PointOnFloor(Vector3 point)
     {
@@ -98,8 +145,6 @@ internal sealed class GameActions
 
     public void ForceStopCombatAutomation()
     {
-        // 停止ボタンはAMHが開始したものだけでなく、残っている戦闘自動化も明示的に止める。
-        // BMRはFATE Automation Pluginの全停止と同じ /bmrai off を使用する。
         try { commands.ProcessCommand("/rotation Off"); } catch { }
         try { commands.ProcessCommand("/wrath auto off"); } catch { }
         try { commands.ProcessCommand("/bmrai off"); } catch { }
@@ -112,7 +157,6 @@ internal sealed class GameActions
         if (enabled)
         {
             if (OwnsCombat) return;
-            // 戦闘方式はRSR固定。FATE Automation Pluginと同じRSR本体コマンドで直接設定する。
             commands.ProcessCommand("/rotation Settings TargetingTypes add HighMaxHP");
             commands.ProcessCommand("/rotation Auto HighMaxHP");
             log.Information("[AMH] RSR直接設定 / TargetingTypes add HighMaxHP -> /rotation Auto HighMaxHP");
