@@ -1,0 +1,118 @@
+name: Publish A-Rank Hunt Tour Assistant upload
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "upload/ARankHuntTourAssistant_v*.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Select uploaded package
+        id: pkg
+        shell: bash
+        run: |
+          ZIP=""
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ZIP=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^upload/ARankHuntTourAssistant_v[0-9]+\.[0-9]+\.[0-9]+\.zip$' | head -n 1 || true)
+          fi
+          if [ -z "$ZIP" ]; then
+            ZIP=$(find upload -maxdepth 1 -type f -name 'ARankHuntTourAssistant_v*.zip' | sort -V | tail -n 1 || true)
+          fi
+          if [ -z "$ZIP" ]; then
+            echo "No upload ZIP found."
+            exit 1
+          fi
+          FILE=$(basename "$ZIP")
+          VERSION=${FILE#ARankHuntTourAssistant_v}
+          VERSION=${VERSION%.zip}
+          TAG="v${VERSION}"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Verify package and version
+        shell: bash
+        env:
+          ZIP: ${{ steps.pkg.outputs.zip }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -s "$ZIP"
+          unzip -l "$ZIP" | grep -q 'ARankHuntTourAssistant.dll'
+          unzip -l "$ZIP" | grep -q 'ARankHuntTourAssistant.json'
+          unzip -p "$ZIP" ARankHuntTourAssistant.json > /tmp/ARankHuntTourAssistant.json
+          python3 - <<'PY'
+          import json, os
+          with open('/tmp/ARankHuntTourAssistant.json', encoding='utf-8-sig') as f:
+              manifest = json.load(f)
+          actual = str(manifest.get('AssemblyVersion', ''))
+          expected_short = os.environ['VERSION']
+          expected_full = expected_short + '.0'
+          if actual not in (expected_short, expected_full):
+              raise SystemExit(f'AssemblyVersion mismatch: ZIP={actual!r}, filename={expected_short!r}/{expected_full!r}')
+          print(f'Verified AssemblyVersion: {actual}')
+          PY
+
+      - name: Sync pluginmaster to uploaded version
+        shell: bash
+        env:
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          version = os.environ['VERSION']
+          path = Path('pluginmaster.json')
+          data = json.loads(path.read_text(encoding='utf-8-sig'))
+          if not isinstance(data, list) or not data:
+              raise SystemExit('pluginmaster.json must contain a non-empty JSON array')
+          entry = data[0]
+          assembly = f'{version}.0'
+          url = f'https://github.com/elpapityo/ARankHuntTourAssistant/releases/download/v{version}/ARankHuntTourAssistant_v{version}.zip'
+          entry['AssemblyVersion'] = assembly
+          entry['DownloadLinkInstall'] = url
+          entry['DownloadLinkUpdate'] = url
+          entry['DownloadLinkTesting'] = url
+          entry['IconUrl'] = f'https://raw.githubusercontent.com/elpapityo/ARankHuntTourAssistant/main/images/icon.png?v={version}'
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(f'Synced pluginmaster.json -> {assembly}')
+          PY
+          if ! git diff --quiet -- pluginmaster.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pluginmaster.json
+            git commit -m "Sync pluginmaster for v${VERSION}"
+            git push
+          else
+            echo "pluginmaster.json already matches v${VERSION}."
+          fi
+
+      - name: Create or replace release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="${{ steps.pkg.outputs.tag }}"
+          ZIP="${{ steps.pkg.outputs.zip }}"
+          VERSION="${{ steps.pkg.outputs.version }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "A-Rank Hunt Tour Assistant v${VERSION}" --notes-file CHANGELOG.md
+          else
+            gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" --title "A-Rank Hunt Tour Assistant v${VERSION}" --notes-file CHANGELOG.md
+          fi
